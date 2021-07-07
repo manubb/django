@@ -2,7 +2,8 @@ from django.core.exceptions import FieldError
 from django.test import TestCase
 
 from .models import (
-    BigChild, Child, ChildProxy, Primary, RefreshPrimaryProxy, Secondary,
+    BigChild, Child, ChildProxy, Primary, Publication, RefreshPrimaryProxy,
+    Secondary, User,
 )
 
 
@@ -270,3 +271,36 @@ class TestDefer2(AssertionMixin, TestCase):
             # access of any of them.
             self.assertEqual(rf2.name, 'new foo')
             self.assertEqual(rf2.value, 'new bar')
+
+
+class TestDefaultDeferredFields(AssertionMixin, TestCase):
+    """
+    The model `Publication` has two default deferred fields:
+    `title` and `user`. The model `User` has one default deferred field.
+    Those fields must be deferred during getting object from DB
+    """
+    def test_default_deferred_fields(self):
+        user = User.objects.create()
+        Publication.objects.create(user=user)
+
+        publication = Publication.objects.get()
+        self.assertEqual(len(publication.get_deferred_fields()), 2)
+        self.assertEqual(publication.user, user)
+        self.assertEqual(publication.title, "Test Title")
+
+        more_deferred_publication = Publication.objects.defer("text").get()
+        self.assertEqual(len(more_deferred_publication.get_deferred_fields()), 3)
+        self.assertEqual(more_deferred_publication.text, "Test text")
+
+    def test_select_related_with_default_deferred_fields(self):
+        """
+        Default deferred fields should not be fetched in select_related calls
+        """
+        user = User.objects.create()
+        Publication.objects.create(user=user)
+
+        publication = Publication.objects.select_related("user").get()
+        self.assertEqual(len(publication.get_deferred_fields()), 2)
+        self.assertEqual(len(publication.user.get_deferred_fields()), 1)
+        publication.user_id
+        self.assertEqual(len(publication.get_deferred_fields()), 1)

@@ -31,7 +31,7 @@ DEFAULT_NAMES = (
     'auto_created', 'index_together', 'apps', 'default_permissions',
     'select_on_save', 'default_related_name', 'required_db_features',
     'required_db_vendor', 'base_manager_name', 'default_manager_name',
-    'indexes', 'constraints',
+    'indexes', 'constraints', 'defer_fields',
 )
 
 
@@ -893,3 +893,10 @@ class Options:
             field for field in self._get_fields(forward=True, reverse=False, include_parents=PROXY_PARENTS)
             if getattr(field, 'db_returning', False)
         ]
+
+    @cached_property
+    def default_deferred_fields(self):
+        if hasattr(self, "defer_fields"):
+            return {self.get_field(field_name).attname for field_name in self.defer_fields}
+
+        return set()
